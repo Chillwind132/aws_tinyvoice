@@ -44,6 +44,12 @@ async def basic_transcribe():
             async for chunk in reader:
                 time.sleep(0.5)
                 await stream.input_stream.send_audio_event(audio_chunk=chunk)
+                
+                if user_selection_stop == "2": # Stop the loop if app terminated by user 
+                    loop = asyncio.get_running_loop()
+                    loop.stop()
+                    loop.close()
+                   
         
         await stream.input_stream.end_stream()
     # Instantiate our handler and start processing events
@@ -51,7 +57,7 @@ async def basic_transcribe():
     await asyncio.gather(write_chunks(), handler.handle_events())
 
 
-class myThread (threading.Thread):
+class myThread (threading.Thread): 
    def __init__(self, threadID, name, counter):
       threading.Thread.__init__(self)
       self.threadID = threadID
@@ -59,26 +65,48 @@ class myThread (threading.Thread):
       self.counter = counter
 
    def run(self):
-       print("Starting thread 1")
-       while True:
-            time.sleep(0.5)
-            if record_flag is True:
+       print("Starting tinyvoice")
+       while user_selection_stop != '2':
+            
+            time.sleep(1)
 
-                time.sleep(1.5)
-
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            # Transcribe voice data in chunks
+            try:
                 loop.run_until_complete(basic_transcribe())
                 loop.close()
-            if stop_threads:
-               return
+            except Exception as e:
+                print("async terminated") 
 
 
+class myThread_usr_sel (threading.Thread):
+    def __init__(self, threadID, name, counter):
+      threading.Thread.__init__(self)
+      self.threadID = threadID
+      self.name = name
+      self.counter = counter
+      
+    def run(self):
+        global user_selection_stop
+        user_selection_stop = self.user_input_stop()
+        
+    def user_input_stop(self):
+        self.selection_stop = input(
+            "Press 2 to stop\n")
+        while self.selection_stop != '2':
+            print('Invalid input')
+            self.selection_stop = input(
+                "Press 2 to stop\n")
+        return self.selection_stop
+    
 class main():
     def __init__(self):
 
         self.AWS_ACCESS_KEY_ID = ""
         self.AWS_SECRET_KEY = ""
+        self.selection_start = '0'
+        self.selection_stop = '0'
 
         self.main()
 
@@ -98,30 +126,51 @@ class main():
 
         self.auth()
 
-        global stop_threads, record_flag
-        record_flag = False
+        global stop_threads, user_selection_stop
+        
         stop_threads = True
+        user_selection_stop ='' 
+        
+        if self.user_input_start() == '1':
+            thread1 = myThread(1, "Thread-1", 1)
+            thread1.start()
+            
+            
+            filename = 'voice.wav'
+            if os.path.isfile(filename):
+                os.remove(filename)
 
-        thread1 = myThread(1, "Thread-1", 1)
-        thread1.start()
+            with sf.SoundFile(filename, mode='x', samplerate=16000, channels=1) as file: # Stream our voice data to voice.wav
+                with sd.InputStream(samplerate=16000, channels=1, callback=callback):
+                   
+                    thread2 = myThread_usr_sel(1, "Thread-user_sel", 1) #Prompts user to stop app exec 
+                    thread2.start()
+                    
+                    
+                    while user_selection_stop != '2':
+                        
+                        file.write(q.get())
+                        
+                    thread1.join()
+                    print ('terminated')
+                    
 
-        filename = 'voice.wav'
-        if os.path.isfile(filename):
-            os.remove(filename)
+    def user_input_start(self):
+        self.selection_start = input(
+            "Press 1 to start\n")
+        while self.selection_start != '1':
+            print('Invalid input')
+            self.selection_start = input(
+                "Press 1 to start\n")
+        return self.selection_start
 
-        with sf.SoundFile(filename, mode='x', samplerate=16000, channels=1) as file:
-            with sd.InputStream(samplerate=16000, channels=1, callback=callback):
-                print('#' * 80)
-                print('press Ctrl+C to stop the recording')
-                print('#' * 80)
-                while True:
-                    record_flag = True
-                    file.write(q.get())
-  
+    
+    
 if __name__ == "__main__":
     
     q = queue.Queue()
     main()
+    print('done')
 
 
 
