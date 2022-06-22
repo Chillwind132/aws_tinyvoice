@@ -13,7 +13,7 @@ import soundfile as sf
 from amazon_transcribe.model import TranscriptEvent
 from amazon_transcribe.handlers import TranscriptResultStreamHandler
 from amazon_transcribe.client import TranscribeStreamingClient
-
+import msvcrt
 
 def callback(indata, frames, time, status):
     if status:
@@ -92,12 +92,17 @@ class myThread_usr_sel (threading.Thread):
         user_selection_stop = self.user_input_stop()
         
     def user_input_stop(self):
-        self.selection_stop = input(
-            "Press 2 to stop\n")
-        while self.selection_stop != '2':
-            print('Invalid input')
-            self.selection_stop = input(
-                "Press 2 to stop\n")
+        key_stroke = ''
+        while key_stroke != b'\x1b': # Terminate if "esc" pressed
+            if msvcrt.kbhit():
+                key_stroke = msvcrt.getch()
+                if key_stroke == b'\x1b': 
+                    self.selection_stop = '2'
+                    print("Esc key pressed")
+                else:
+                    print(str(key_stroke).split("'")[1], "key pressed")
+                
+        
         return self.selection_stop
     
 class main():
@@ -130,6 +135,8 @@ class main():
         
         stop_threads = True
         user_selection_stop ='' 
+        
+        
         
         if self.user_input_start() == '1':
             thread1 = myThread(1, "Thread-1", 1)
