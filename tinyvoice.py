@@ -66,14 +66,14 @@ class main():
             with sf.SoundFile(filename, mode='x', samplerate=16000, channels=1) as file:
                 with sd.InputStream(samplerate=16000, channels=1, callback=callback):
 
-                    # Prompts user to stop app exec
+                    # Prompts user to stop app exec in a seperate thread
                     thread2 = myThread_usr_sel(1, "Thread-user_sel", 1)
                     thread2.start()
 
                     while stop_threads is not True:
-
+                        
                         file.write(q.get())
-
+                        
                     thread1.join()
 
 
@@ -110,6 +110,7 @@ class myThread (threading.Thread):
                     filename = 'voice.wav'
                     while os.path.isfile(filename) is not True:
                         pass
+                    
                 except Exception as e:
                     print(Fore.RED + "tinyvoice terminated" + Style.RESET_ALL)
                     print(e)
@@ -117,6 +118,9 @@ class myThread (threading.Thread):
     async def basic_transcribe(self):
         client = TranscribeStreamingClient(region="us-east-2")
         # Start transcription to generate our async stream
+        #Preload the thread to this point to speed up processing#
+        while start_listen_flag is False:
+            pass
         stream = await client.start_stream_transcription(
             language_code="en-US",
             media_sample_rate_hz=16000,
@@ -124,9 +128,7 @@ class myThread (threading.Thread):
         )
 
         async def write_chunks():
-            ###Preload to speed up processing###
-            while start_listen_flag is False:
-                pass
+            
             async with aiofile.AIOFile('voice.wav', 'rb') as afp:
 
                 reader = aiofile.Reader(afp, chunk_size=1024 * 20)
@@ -147,12 +149,6 @@ class myThread (threading.Thread):
         await asyncio.gather(write_chunks(), handler.handle_events())
     
 
-    
-
-
- 
-
-
 class myThread_usr_sel (threading.Thread):
     def __init__(self, threadID, name, counter):
       threading.Thread.__init__(self)
@@ -166,6 +162,7 @@ class myThread_usr_sel (threading.Thread):
 
     def user_input_stop(self):
         key_stroke = ''
+        print(Fore.RED + "Use 'ESC' button to quit" + Style.RESET_ALL)
         while key_stroke != b'\x1b':  # Terminate if "esc" pressed
             if msvcrt.kbhit():
                 key_stroke = msvcrt.getch()
