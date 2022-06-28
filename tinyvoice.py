@@ -50,8 +50,8 @@ class main():
 
         self.auth()
 
-        global stop_threads, start_listen_flag, action_flag
-        action_flag = '0'
+        global stop_threads, start_listen_flag, purge_data
+        purge_data = False
         stop_threads = False
         start_listen_flag = False
 
@@ -68,8 +68,6 @@ class main():
             start_listen_flag = True
 
             print(Fore.GREEN + "Listening..." + Style.RESET_ALL)
-            
-            
             
             thread_voice_listener = myThread_voice_listener(1, "voice_listener", 1)
             thread_voice_listener.start()
@@ -113,7 +111,7 @@ class myThread (threading.Thread):
                     
                 except FileNotFoundError:
                     
-                    while os.path.isfile(VOICE_DATA) is not True:
+                    #while os.path.isfile(VOICE_DATA) is not True:
                         pass
                     
                 except Exception as e:
@@ -136,7 +134,6 @@ class myThread (threading.Thread):
         )
 
         async def write_chunks():
-            
             
             async with aiofile.AIOFile('voice.wav', 'rb') as afp:
                 
@@ -166,28 +163,37 @@ class myThread_voice_listener (threading.Thread):
       self.threadID = threadID
       self.name = name
       self.counter = counter
-      
+      global stop_voice
+      stop_voice = False
+
     def run(self):
         # Stream our voice data to voice.wav
-        
-        
-        while True:
+        while stop_voice is not True:
             with sf.SoundFile(VOICE_DATA, mode='x', samplerate=SAMPLERATE, channels=1) as file:
                 with sd.InputStream(samplerate=SAMPLERATE, channels=1, callback=callback):
 
                     # Prompts user to stop app exec in a seperate thread
                     thread2 = myThread_usr_sel(1, "Thread-user_sel", 1)
                     thread2.start()
-
-                    while stop_threads is not True: # LOOP CHECK
+                    
+                    while stop_threads is not True and stop_voice is not True:  # LOOP CHECK
                         
                         file.write(q.get())
                         
-                        #if action_flag == '1':
+                        #if purge_data is True:
                             #file.close()
-                            
+
+        #Stop voice recording and unlock our file for deletion                    
+        sd.stop()
+        file.close()
+        time.sleep(1)
+        os.remove(VOICE_DATA)
+        print("File Removed")
+        print("123")
+                      
+    
+    
         
-                    
 
 class myThread_usr_sel (threading.Thread):
     def __init__(self, threadID, name, counter):
@@ -225,14 +231,13 @@ class MyEventHandler(TranscriptResultStreamHandler):
                 
                 if alt.transcript.strip() == 'Open Google chrome':
                     print(Fore.YELLOW + 'ACTION' + Style.RESET_ALL)
-                    #self.reset_loop()
+                    self.reset_loop()
                     
     def reset_loop(self):
         
-        global action_flag
-        action_flag = '1'
-                        
-               
+        global purge_data, stop_voice
+        purge_data = True
+        stop_voice = True
                     
 class Queue(queue.Queue):
   '''
@@ -263,13 +268,9 @@ def callback(indata, frames, time, status):
     
 if __name__ == "__main__":
     
-
-    
     init()
     q = queue.Queue()
     main()
-    
-   
     
     print('done')
 
