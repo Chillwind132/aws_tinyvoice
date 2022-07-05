@@ -92,7 +92,7 @@ class myThread (threading.Thread):
         self.threadID = threadID
         self.name = name
         self.counter = counter
-
+        
     def run(self):
         
         while stop_threads is not True:
@@ -101,25 +101,37 @@ class myThread (threading.Thread):
 
                 loop = asyncio.new_event_loop()
                 asyncio.set_event_loop(loop)
-                ####
-                
-                ###
+
                 # Transcribe voice data in chunks
                 try:
-                    loop.run_until_complete(self.basic_transcribe())
-                    loop.close()
+                    loop.run_until_complete(self.forever())
+                    loop.stop()
+                    
                     
                 except FileNotFoundError:
                     
                     #while os.path.isfile(VOICE_DATA) is not True:
-                        pass
+                    time.sleep(1)
+                    asyncio.sleep(1)
+                    loop.stop()
+                    loop.close()
+                    pass
                     
                 except Exception as e:
                     print(Fore.RED + "tinyvoice terminated" + Style.RESET_ALL)
                     print(e)
 
+    async def forever(self):
+        while purge_data is not True:
+            await self.basic_transcribe()
+            asyncio.sleep(0.2)
+        #loop = asyncio.get_running_loop()
+        #asyncio.sleep(0.2)
+        #loop.stop()
+
     async def basic_transcribe(self):
         
+
         start_time = time.time()
         
         client = TranscribeStreamingClient(region="us-east-2")
@@ -132,7 +144,7 @@ class myThread (threading.Thread):
             media_sample_rate_hz=SAMPLERATE,
             media_encoding="pcm",
         )
-
+       
         async def write_chunks():
             
             async with aiofile.AIOFile('voice.wav', 'rb') as afp:
@@ -150,11 +162,14 @@ class myThread (threading.Thread):
                         loop = asyncio.get_running_loop()
                         loop.stop()
                         loop.close()
+                    if purge_data is True:
+                        afp.close()            
 
             await stream.input_stream.end_stream()
+            
         # Instantiate our handler and start processing events
         handler = MyEventHandler(stream.output_stream)
-        await asyncio.gather(write_chunks(), handler.handle_events())
+        group1 = await asyncio.gather(write_chunks(), handler.handle_events())
 
 
 class myThread_voice_listener (threading.Thread):
@@ -180,8 +195,10 @@ class myThread_voice_listener (threading.Thread):
                         
                         file.write(q.get())
                         
-                        #if purge_data is True:
-                            #file.close()
+                        if purge_data is True:
+                            with q.mutex:
+                                q.queue.clear()
+                            file.close()
 
         #Stop voice recording and unlock our file for deletion                    
         sd.stop()
@@ -190,10 +207,6 @@ class myThread_voice_listener (threading.Thread):
         os.remove(VOICE_DATA)
         print("File Removed")
         print("123")
-                      
-    
-    
-        
 
 class myThread_usr_sel (threading.Thread):
     def __init__(self, threadID, name, counter):
@@ -209,12 +222,14 @@ class myThread_usr_sel (threading.Thread):
     def user_input_stop(self):
         key_stroke = ''
         print(Fore.RED + "Use 'ESC' button to quit" + Style.RESET_ALL)
-        while key_stroke != b'\x1b':  # Terminate if "esc" pressed
+        while key_stroke != b'\x1b' or key_stroke != b'\r':  # Terminate if "esc" pressed
             if msvcrt.kbhit():
                 key_stroke = msvcrt.getch()
                 if key_stroke == b'\x1b':
                     self.selection_stop = True
                     print("Esc key pressed")
+                elif key_stroke == b'\r':
+                    print("Enter pressed!")
                 else:
                     print(str(key_stroke).split("'")[1], "key pressed")
 
