@@ -52,9 +52,9 @@ class main():
         self.auth()
 
         global stop_threads, start_listen_flag, purge_data
-        purge_data = False
         stop_threads = False
         start_listen_flag = False
+        purge_data = False
 
         print(Fore.GREEN + "Starting tinyvoice" + Style.RESET_ALL)
 
@@ -199,9 +199,9 @@ class myThread_voice_listener (threading.Thread):
         time.sleep(0.5)
         os.remove(VOICE_DATA)
         if os.path.isfile(VOICE_DATA):
-            print("Error")
+            print("Error while purging voice data")
         else:
-            print("Voice data file removed")
+            print("Voice data purged")
 
 
 class myThread_usr_sel (threading.Thread):
