@@ -13,18 +13,19 @@ import time
 import cProfile
 import pstats
 import subprocess
+import webbrowser
 from amazon_transcribe.model import TranscriptEvent
 from amazon_transcribe.handlers import TranscriptResultStreamHandler
 from amazon_transcribe.client import TranscribeStreamingClient
 from colorama import Fore, Back, Style
 from colorama import init
-import webbrowser
 
 
 SAMPLERATE = 16000
 VOICE_DATA = 'voice.wav'
 
 class main():
+
     def __init__(self):
 
         self.AWS_ACCESS_KEY_ID = ""
@@ -107,15 +108,11 @@ class myThread (threading.Thread):
                     loop.run_until_complete(self.forever())
                     loop.stop()
                     
-                    
                 except FileNotFoundError:
                     
                     #while os.path.isfile(VOICE_DATA) is not True:
-                    time.sleep(1)
-                    asyncio.sleep(1)
                     loop.stop()
                     loop.close()
-                    pass
                     
                 except Exception as e:
                     print(Fore.RED + "tinyvoice terminated" + Style.RESET_ALL)
@@ -125,18 +122,14 @@ class myThread (threading.Thread):
         while purge_data is not True:
             await self.basic_transcribe()
             asyncio.sleep(0.2)
-        #loop = asyncio.get_running_loop()
-        #asyncio.sleep(0.2)
-        #loop.stop()
+
 
     async def basic_transcribe(self):
         
-
         start_time = time.time()
         
         client = TranscribeStreamingClient(region="us-east-2")
         # Start transcription to generate our async stream
-        #Preload the thread to this point to speed up processing#
         while start_listen_flag is False:
             pass
         stream = await client.start_stream_transcription(
@@ -203,10 +196,13 @@ class myThread_voice_listener (threading.Thread):
         #Stop voice recording and unlock our file for deletion                    
         sd.stop()
         file.close()
-        time.sleep(1)
+        time.sleep(0.5)
         os.remove(VOICE_DATA)
-        print("File Removed")
-        print("123")
+        if os.path.isfile(VOICE_DATA):
+            print("Error")
+        else:
+            print("Voice data file removed")
+
 
 class myThread_usr_sel (threading.Thread):
     def __init__(self, threadID, name, counter):
@@ -258,7 +254,6 @@ class Queue(queue.Queue):
   '''
   A custom queue subclass that provides a :meth:`clear` method.
   '''
-
   def clear(self):
     '''
     Clears all items from the queue.
@@ -275,7 +270,6 @@ class Queue(queue.Queue):
       self.not_full.notify_all()                    
                   
                 
-
 def callback(indata, frames, time, status):
     if status:
         print(status, file=sys.stderr)
